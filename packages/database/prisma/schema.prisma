@@ -1,0 +1,246 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// User
+// ============================================================
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tasks        Task[]
+  memories     Memory[]
+  integrations Integration[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+// ============================================================
+// Task
+// ============================================================
+model Task {
+  id          String          @id @default(cuid())
+  userId      String
+  inputText   String
+  inputType   TaskInputType   @default(TEXT)
+  status      TaskStatus      @default(CREATED)
+  priority    TaskPriority    @default(NORMAL)
+  currentStep Int             @default(0)
+  createdAt   DateTime        @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  error       String?
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps     TaskStep[]
+  approvals Approval[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status])
+  @@map("tasks")
+}
+
+// ============================================================
+// Task Step
+// ============================================================
+model TaskStep {
+  id          String     @id @default(cuid())
+  taskId      String
+  stepNumber  Int
+  toolName    String
+  inputJson   Json
+  outputJson  Json?
+  status      StepStatus @default(PENDING)
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  // Relations
+  task           Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  toolExecutions ToolExecution[]
+
+  @@index([taskId, stepNumber])
+  @@map("task_steps")
+}
+
+// ============================================================
+// Tool Execution
+// ============================================================
+model ToolExecution {
+  id             String            @id @default(cuid())
+  taskStepId     String
+  toolName       String
+  argumentsJson  Json
+  resultJson     Json?
+  status         ExecutionStatus   @default(PENDING)
+  idempotencyKey String            @unique
+  startedAt      DateTime?
+  completedAt    DateTime?
+
+  // Relations
+  taskStep  TaskStep   @relation(fields: [taskStepId], references: [id], onDelete: Cascade)
+  approvals Approval[]
+  auditLogs AuditLog[]
+
+  @@index([taskStepId])
+  @@map("tool_executions")
+}
+
+// ============================================================
+// Approval
+// ============================================================
+model Approval {
+  id              String         @id @default(cuid())
+  taskId          String
+  toolExecutionId String
+  riskLevel       RiskLevel
+  payloadHash     String
+  payloadJson     Json
+  status          ApprovalStatus @default(PENDING)
+  expiresAt       DateTime
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+
+  // Relations
+  task          Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  toolExecution ToolExecution @relation(fields: [toolExecutionId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, status])
+  @@index([expiresAt])
+  @@map("approvals")
+}
+
+// ============================================================
+// Memory
+// ============================================================
+model Memory {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String
+  content      String
+  metadataJson Json?
+  importance   Float    @default(0.5)
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("memories")
+}
+
+// ============================================================
+// Integration
+// ============================================================
+model Integration {
+  id          String   @id @default(cuid())
+  userId      String
+  provider    String
+  accessToken String?
+  refreshToken String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("integrations")
+}
+
+// ============================================================
+// Audit Log
+// ============================================================
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String
+  taskId          String?
+  toolExecutionId String?
+  action          String
+  resourceType    String
+  resourceId      String
+  metadataJson    Json?
+  createdAt       DateTime @default(now())
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toolExecution ToolExecution? @relation(fields: [toolExecutionId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+enum TaskStatus {
+  CREATED
+  QUEUED
+  PLANNING
+  WAITING_APPROVAL
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REJECTED
+  RETRY
+}
+
+enum TaskInputType {
+  TEXT
+  VOICE
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum StepStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum RiskLevel {
+  SAFE
+  CONFIRM
+  CRITICAL
+}

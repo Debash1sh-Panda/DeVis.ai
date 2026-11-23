@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: devis_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devis
+      POSTGRES_PASSWORD: devis_password
+      POSTGRES_DB: devis_ai
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U devis -d devis_ai']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: devis_redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass redis_password
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'redis_password', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Uncomment for production:
+  # rabbitmq:
+  #   image: rabbitmq:3-management-alpine
+  #   container_name: devis_rabbitmq
+  #   ports:
+  #     - '5672:5672'
+  #     - '15672:15672'
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: devis
+  #     RABBITMQ_DEFAULT_PASS: devis_password
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  postgres_data:
+  redis_data:
+  # rabbitmq_data:

@@ -1,0 +1,24 @@
+export enum TaskStatus {
+  CREATED = 'CREATED',
+  QUEUED = 'QUEUED',
+  PLANNING = 'PLANNING',
+  WAITING_APPROVAL = 'WAITING_APPROVAL',
+  EXECUTING = 'EXECUTING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  REJECTED = 'REJECTED',
+  RETRY = 'RETRY',
+}
+
+export enum TaskInputType {
+  TEXT = 'TEXT',
+  VOICE = 'VOICE',
+}
+
+export enum TaskPriority {
+  LOW = 'LOW',
+  NORMAL = 'NORMAL',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
